@@ -24,9 +24,13 @@ class Dumper
         output = ''
         prefix = (if indent then Utils.strRepeat(' ', indent) else '')
 
+        if Utils.testForPipe(input)
+          output += Inline.pipeLines input, prefix
+          return output
+
         if inline <= 0 or typeof(input) isnt 'object' or input instanceof Date or Utils.isEmpty(input)
             output += prefix + Inline.dump(input, exceptionOnInvalidType, objectEncoder)
-        
+
         else
             if input instanceof Array
                 for value in input
@@ -42,11 +46,12 @@ class Dumper
             else
                 for key, value of input
                     willBeInlined = (inline - 1 <= 0 or typeof(value) isnt 'object' or Utils.isEmpty(value))
+                    willBeInlined = false if Utils.testForPipe(input[key])
 
                     output +=
                         prefix +
                         Inline.dump(key, exceptionOnInvalidType, objectEncoder) + ':' +
-                        (if willBeInlined then ' ' else "\n") +
+                        (if willBeInlined or Utils.testForPipe(input[key]) then ' ' else "\n") + '' +
                         @dump(value, inline - 1, (if willBeInlined then 0 else indent + @indentation), exceptionOnInvalidType, objectEncoder) +
                         (if willBeInlined then "\n" else '')
 

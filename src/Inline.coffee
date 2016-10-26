@@ -24,6 +24,24 @@ class Inline
     @settings: {}
 
 
+    # Adds indentation right after every new line
+    #
+    # @param [String]   value                   A YAML string
+    # @param [String]  prefix                   spaces
+    #
+    # @return [String]  str                     new String
+    #
+
+    @pipeLines: (value, prefix) ->
+      str = '|-\n' + prefix
+      i = 0
+      while i < value.length
+        ch = value.charAt(i)
+        str += ch
+        str += prefix if ch == '\n'
+        i++
+      str
+
     # Configure YAML inline.
     #
     # @param [Boolean]  exceptionOnInvalidType  true if an exception must be thrown on invalid types (a JavaScript resource or object), false otherwise

@@ -1,5 +1,6 @@
 
 Pattern = require './Pattern'
+Escaper = require './Escaper'
 
 # A bunch of utility methods
 #
@@ -345,6 +346,17 @@ class Utils
                     return String(data)
                 return null
 
-
+    # Test if input is string and has pipe and has new lines in it
+    #
+    # @param [String]   input        The path to the file
+    #
+    # @return [Boolean]
+    #
+    @testForPipe: (input) ->
+      hasNewlines = null
+      try
+        hasNewlines = input.match('\n')
+      catch err
+      hasNewlines and (Escaper.requiresDoubleQuoting(input) or Escaper.requiresSingleQuoting(input))
 
 module.exports = Utils

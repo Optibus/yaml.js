@@ -16,7 +16,17 @@
   },
   "devDependencies": {
     "benchmark": "^2.1.0",
+    "coffee-script": "1.11.1",
     "coffeeify": "^2.0.1",
+    "del": "*",
+    "gulp": "*",
+    "gulp-browserify": "*",
+    "gulp-coffee": "*",
+    "gulp-concat": "*",
+    "gulp-folders": "*",
+    "gulp-rename": "^1.2.2",
+    "gulp-run-sequence": "*",
+    "gulp-uglifyjs": "*",
     "jasmine-node": "^1.14.5"
   },
   "bin": {
