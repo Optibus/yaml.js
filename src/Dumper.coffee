@@ -53,7 +53,7 @@ class Dumper
                         Inline.dump(key, exceptionOnInvalidType, objectEncoder) + ':' +
                         (if willBeInlined or Utils.testForPipe(input[key]) then ' ' else "\n") + '' +
                         @dump(value, inline - 1, (if willBeInlined then 0 else indent + @indentation), exceptionOnInvalidType, objectEncoder) +
-                        (if willBeInlined then "\n" else '')
+                        (if willBeInlined or Utils.testForPipe(input[key]) then "\n" else '')
 
         return output
 
