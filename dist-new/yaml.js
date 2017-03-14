@@ -59,7 +59,7 @@ Dumper = (function() {
 
 module.exports = Dumper;
 
-},{"./Inline":5,"./Utils":9}],2:[function(require,module,exports){
+},{"./Inline":6,"./Utils":10}],2:[function(require,module,exports){
 var Escaper, Pattern;
 
 Pattern = require('./Pattern');
@@ -116,7 +116,7 @@ Escaper = (function() {
 
 module.exports = Escaper;
 
-},{"./Pattern":7}],3:[function(require,module,exports){
+},{"./Pattern":8}],3:[function(require,module,exports){
 var DumpException,
   extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty;
@@ -173,7 +173,35 @@ ParseException = (function(superClass) {
 module.exports = ParseException;
 
 },{}],5:[function(require,module,exports){
-var DumpException, Escaper, Inline, ParseException, Pattern, Unescaper, Utils,
+var ParseMore,
+  extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+  hasProp = {}.hasOwnProperty;
+
+ParseMore = (function(superClass) {
+  extend(ParseMore, superClass);
+
+  function ParseMore(message, parsedLine, snippet) {
+    this.message = message;
+    this.parsedLine = parsedLine;
+    this.snippet = snippet;
+  }
+
+  ParseMore.prototype.toString = function() {
+    if ((this.parsedLine != null) && (this.snippet != null)) {
+      return '<ParseMore> ' + this.message + ' (line ' + this.parsedLine + ': \'' + this.snippet + '\')';
+    } else {
+      return '<ParseMore> ' + this.message;
+    }
+  };
+
+  return ParseMore;
+
+})(Error);
+
+module.exports = ParseMore;
+
+},{}],6:[function(require,module,exports){
+var DumpException, Escaper, Inline, ParseException, ParseMore, Pattern, Unescaper, Utils,
   indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
 Pattern = require('./Pattern');
@@ -185,6 +213,8 @@ Escaper = require('./Escaper');
 Utils = require('./Utils');
 
 ParseException = require('./Exception/ParseException');
+
+ParseMore = require('./Exception/ParseMore');
 
 DumpException = require('./Exception/DumpException');
 
@@ -409,7 +439,7 @@ Inline = (function() {
     var i, match, output;
     i = context.i;
     if (!(match = this.PATTERN_QUOTED_SCALAR.exec(scalar.slice(i)))) {
-      throw new ParseException('Malformed inline YAML string (' + scalar.slice(i) + ').');
+      throw new ParseMore('Malformed inline YAML string (' + scalar.slice(i) + ').');
     }
     output = match[0].substr(1, match[0].length - 2);
     if ('"' === scalar.charAt(i)) {
@@ -461,7 +491,7 @@ Inline = (function() {
       }
       ++i;
     }
-    throw new ParseException('Malformed inline YAML string ' + sequence);
+    throw new ParseMore('Malformed inline YAML string ' + sequence);
   };
 
   Inline.parseMapping = function(mapping, context) {
@@ -529,7 +559,7 @@ Inline = (function() {
         }
       }
     }
-    throw new ParseException('Malformed inline YAML string ' + mapping);
+    throw new ParseMore('Malformed inline YAML string ' + mapping);
   };
 
   Inline.evaluateScalar = function(scalar, context) {
@@ -671,8 +701,8 @@ Inline = (function() {
 
 module.exports = Inline;
 
-},{"./Escaper":2,"./Exception/DumpException":3,"./Exception/ParseException":4,"./Pattern":7,"./Unescaper":8,"./Utils":9}],6:[function(require,module,exports){
-var Inline, ParseException, Parser, Pattern, Utils;
+},{"./Escaper":2,"./Exception/DumpException":3,"./Exception/ParseException":4,"./Exception/ParseMore":5,"./Pattern":8,"./Unescaper":9,"./Utils":10}],7:[function(require,module,exports){
+var Inline, ParseException, ParseMore, Parser, Pattern, Utils;
 
 Inline = require('./Inline');
 
@@ -681,6 +711,8 @@ Pattern = require('./Pattern');
 Utils = require('./Utils');
 
 ParseException = require('./Exception/ParseException');
+
+ParseMore = require('./Exception/ParseMore');
 
 Parser = (function() {
   Parser.prototype.PATTERN_FOLDED_SCALAR_ALL = new Pattern('^(?:(?<type>![^\\|>]*)\\s+)?(?<separator>\\||>)(?<modifiers>\\+|\\-|\\d+|\\+\\d+|\\-\\d+|\\d+\\+|\\d+\\-)?(?<comments> +#.*)?$');
@@ -701,13 +733,13 @@ Parser = (function() {
 
   Parser.prototype.PATTERN_TRAILING_LINES = new Pattern('(\n*)$');
 
-  Parser.prototype.PATTERN_YAML_HEADER = new Pattern('^\\%YAML[: ][\\d\\.]+.*\n');
+  Parser.prototype.PATTERN_YAML_HEADER = new Pattern('^\\%YAML[: ][\\d\\.]+.*\n', 'm');
 
-  Parser.prototype.PATTERN_LEADING_COMMENTS = new Pattern('^(\\#.*?\n)+');
+  Parser.prototype.PATTERN_LEADING_COMMENTS = new Pattern('^(\\#.*?\n)+', 'm');
 
-  Parser.prototype.PATTERN_DOCUMENT_MARKER_START = new Pattern('^\\-\\-\\-.*?\n');
+  Parser.prototype.PATTERN_DOCUMENT_MARKER_START = new Pattern('^\\-\\-\\-.*?\n', 'm');
 
-  Parser.prototype.PATTERN_DOCUMENT_MARKER_END = new Pattern('^\\.\\.\\.\\s*$');
+  Parser.prototype.PATTERN_DOCUMENT_MARKER_END = new Pattern('^\\.\\.\\.\\s*$', 'm');
 
   Parser.prototype.PATTERN_FOLDED_SCALAR_BY_INDENTATION = {};
 
@@ -996,18 +1028,16 @@ Parser = (function() {
       if (indent === newIndent) {
         removeComments = !removeCommentsPattern.test(this.currentLine);
       }
-      if (isItUnindentedCollection && !this.isStringUnIndentedCollectionItem(this.currentLine) && indent === newIndent) {
-        this.moveToPreviousLine();
-        break;
+      if (removeComments && this.isCurrentLineComment()) {
+        continue;
       }
       if (this.isCurrentLineBlank()) {
         data.push(this.currentLine.slice(newIndent));
         continue;
       }
-      if (removeComments && this.isCurrentLineComment()) {
-        if (indent === newIndent) {
-          continue;
-        }
+      if (isItUnindentedCollection && !this.isStringUnIndentedCollectionItem(this.currentLine) && indent === newIndent) {
+        this.moveToPreviousLine();
+        break;
       }
       if (indent >= newIndent) {
         data.push(this.currentLine.slice(newIndent));
@@ -1063,25 +1093,26 @@ Parser = (function() {
         return val;
       }
     }
-    try {
-      return Inline.parse(value, exceptionOnInvalidType, objectDecoder);
-    } catch (error) {
-      e = error;
-      if (((ref1 = value.charAt(0)) === '[' || ref1 === '{') && e instanceof ParseException && this.isNextLineIndented()) {
-        value += "\n" + this.getNextEmbedBlock();
+    if ((ref1 = value.charAt(0)) === '[' || ref1 === '{' || ref1 === '"' || ref1 === "'") {
+      while (true) {
         try {
           return Inline.parse(value, exceptionOnInvalidType, objectDecoder);
         } catch (error) {
           e = error;
-          e.parsedLine = this.getRealCurrentLineNb() + 1;
-          e.snippet = this.currentLine;
-          throw e;
+          if (e instanceof ParseMore && this.moveToNextLine()) {
+            value += "\n" + Utils.trim(this.currentLine, ' ');
+          } else {
+            e.parsedLine = this.getRealCurrentLineNb() + 1;
+            e.snippet = this.currentLine;
+            throw e;
+          }
         }
-      } else {
-        e.parsedLine = this.getRealCurrentLineNb() + 1;
-        e.snippet = this.currentLine;
-        throw e;
       }
+    } else {
+      if (this.isNextLineIndented()) {
+        value += "\n" + this.getNextEmbedBlock();
+      }
+      return Inline.parse(value, exceptionOnInvalidType, objectDecoder);
     }
   };
 
@@ -1274,7 +1305,7 @@ Parser = (function() {
 
 module.exports = Parser;
 
-},{"./Exception/ParseException":4,"./Inline":5,"./Pattern":7,"./Utils":9}],7:[function(require,module,exports){
+},{"./Exception/ParseException":4,"./Exception/ParseMore":5,"./Inline":6,"./Pattern":8,"./Utils":10}],8:[function(require,module,exports){
 var Pattern;
 
 Pattern = (function() {
@@ -1382,7 +1413,7 @@ Pattern = (function() {
     count = 0;
     while (this.regex.test(str) && (limit === 0 || count < limit)) {
       this.regex.lastIndex = 0;
-      str = str.replace(this.regex, '');
+      str = str.replace(this.regex, replacement);
       count++;
     }
     return [str, count];
@@ -1394,7 +1425,7 @@ Pattern = (function() {
 
 module.exports = Pattern;
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var Pattern, Unescaper, Utils;
 
 Utils = require('./Utils');
@@ -1478,8 +1509,9 @@ Unescaper = (function() {
 
 module.exports = Unescaper;
 
-},{"./Pattern":7,"./Utils":9}],9:[function(require,module,exports){
-var Escaper, Pattern, Utils;
+},{"./Pattern":8,"./Utils":10}],10:[function(require,module,exports){
+var Escaper, Pattern, Utils,
+  hasProp = {}.hasOwnProperty;
 
 Pattern = require('./Pattern');
 
@@ -1550,7 +1582,20 @@ Utils = (function() {
   };
 
   Utils.isEmpty = function(value) {
-    return !value || value === '' || value === '0' || (value instanceof Array && value.length === 0);
+    return !value || value === '' || value === '0' || (value instanceof Array && value.length === 0) || this.isEmptyObject(value);
+  };
+
+  Utils.isEmptyObject = function(value) {
+    var k;
+    return value instanceof Object && ((function() {
+      var results;
+      results = [];
+      for (k in value) {
+        if (!hasProp.call(value, k)) continue;
+        results.push(k);
+      }
+      return results;
+    })()).length === 0;
   };
 
   Utils.subStrCount = function(string, subString, start, length) {
@@ -1776,7 +1821,7 @@ Utils = (function() {
 
 module.exports = Utils;
 
-},{"./Escaper":2,"./Pattern":7}],10:[function(require,module,exports){
+},{"./Escaper":2,"./Pattern":8}],11:[function(require,module,exports){
 var Dumper, Parser, Utils, Yaml;
 
 Parser = require('./Parser');
@@ -1881,4 +1926,4 @@ if (typeof window === "undefined" || window === null) {
 
 module.exports = Yaml;
 
-},{"./Dumper":1,"./Parser":6,"./Utils":9}]},{},[10])
+},{"./Dumper":1,"./Parser":7,"./Utils":10}]},{},[11])
